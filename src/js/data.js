@@ -376,10 +376,10 @@ recipesGrid.addEventListener("click", async function (e) {
   showMealDetails(meal);
 });
 
-async function getTotalCalories(meal) {
-  if (!meal?.ingredients || meal.ingredients.length === 0) return 0;
-
-  console.log(meal);
+async function getNutrition(meal) {
+  if (!meal?.ingredients || meal.ingredients.length === 0) {
+    return null;
+  }
 
   try {
     const res = await fetch(
@@ -397,15 +397,18 @@ async function getTotalCalories(meal) {
       }
     );
 
-    const data = await res.json();
-    console.log("totalCalories", data);
+    const response = await res.json();
 
-    if (data.message === "success" && data.totalCalories) {
-      return Math.round(data.totalCalories);
+    console.log("Nutrition API response:", response);
+
+    if (response.success && response.data) {
+      return response.data;
     }
+
+    return null;
   } catch (error) {
-    console.error(error);
-    return 0;
+    console.error("Nutrition API error:", error);
+    return null;
   }
 }
 
@@ -448,26 +451,27 @@ async function showMealDetails(mealobj) {
     let cholesterol = 0;
     let sodium = 0;
     if (product) {
-      nutrients = product.nutrients || {};
+      const nutrition = await getNutrition(mealobj);
 
-      totalCalories = await getTotalCalories(mealobj);
-      if (!totalCalories || isNaN(totalCalories)) {
-        totalCalories = Math.round(nutrients.calories);
+      if (nutrition) {
+        totalCalories = Math.round(nutrition.totals?.calories || 0);
+      
+        protein = Math.round(nutrition.totals?.protein || 0);
+        carbs = Math.round(nutrition.totals?.carbs || 0);
+        fat = Math.round(nutrition.totals?.fat || 0);
+        fiber = Math.round(nutrition.totals?.fiber || 0);
+        sugar = Math.round(nutrition.totals?.sugar || 0);
+        saturatedFat = Math.round(nutrition.totals?.saturatedFat || 0);
+        cholesterol = Math.round(nutrition.totals?.cholesterol || 0);
+        sodium = Math.round(nutrition.totals?.sodium || 0);
       }
 
-      protein = Math.round(nutrients.protein);
-      carbs = Math.round(nutrients.carbs);
-      fat = Math.round(nutrients.fat);
-      fiber = Math.round(nutrients.fiber);
-      sugar = Math.round(nutrients.sugar);
-      saturatedFat = Math.round(nutrients.saturatedFat);
-      cholesterol = Math.round(nutrients.cholesterol);
-      sodium = Math.round(nutrients.sodium);
+      const servings = Number(mealobj.servings) || 4;
 
-      const servings = mealobj.servings || 4;
-      const caloriesPerServing = servings
-        ? Math.round(totalCalories / servings)
-        : totalCalories;
+      const caloriesPerServing = Math.round(totalCalories / servings);
+      const proteinPerServing = Math.round(protein / servings);
+      const carbsPerServing = Math.round(carbs / servings);
+      const fatPerServing = Math.round(fat / servings);
 
       const calculateMacroPercentage = (macroValue, total) =>
         macroValue && total ? Math.round((macroValue / total) * 100) : 0;
@@ -713,9 +717,9 @@ async function showMealDetails(mealobj) {
           name: mealDataForModal.name,
           image: mealDataForModal.thumbnail || mealDataForModal.image,
           calories: caloriesPerServing,
-          protein,
-          carbs,
-          fat,
+          protein: proteinPerServing,
+          carbs: carbsPerServing,
+          fat: fatPerServing,
         });
       });
     }
